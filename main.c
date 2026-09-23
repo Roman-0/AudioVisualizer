@@ -17,15 +17,14 @@
 #define SAMPLE_RATE 44100   // Hz (48MHz / (1 + 992) ≈ 44.1kHz)
 #define ADC_PIN     26
 
-// Frequency edges (in Hz) for each of the 8 display columns.
-// Converted to FFT bin indices at runtime in setup_hardware().
+// Frequency edges for each of the 8 display column
 // Each bin = SAMPLE_RATE / NSAMP ≈ 43 Hz.
 #define NUM_COLS    8
 static const float FREQ_EDGES_HZ[NUM_COLS + 1] = {
     20, 60, 150, 400, 1000, 2400, 5000, 10000, 12000
 };
 
-// Tune this to adjust display sensitivity (lower = more sensitive)
+// adjust display sensitivity (lower = more sensitive)
 #define MAG_SCALE   100.0f
 
 // ---------------------------------------------------------------------------
@@ -51,7 +50,6 @@ static void compute_bin_edges(void) {
     float hz_per_bin = (float)SAMPLE_RATE / (float)NSAMP;
     for (int i = 0; i <= NUM_COLS; i++) {
         bin_edges[i] = (int)(FREQ_EDGES_HZ[i] / hz_per_bin);
-        // Clamp to the valid range of non-redundant FFT bins (0 .. NSAMP/2)
         if (bin_edges[i] > NSAMP / 2) bin_edges[i] = NSAMP / 2;
     }
 }
@@ -67,7 +65,7 @@ static void setup_adc(void) {
         false,  // don't append error bit
         false   // keep full 12-bit resolution
     );
-    adc_set_clkdiv(992); // 48MHz / (1+992) ≈ 44.1kHz
+    adc_set_clkdiv(992); // 48MHz / (1+992) ~~ 44.1kHz
 }
 
 static void setup_dma(void) {
@@ -110,7 +108,7 @@ static void capture_samples(void) {
     adc_fifo_drain();
 }
 
-// Remove DC offset and apply a Hann window, writing into fft_in[].
+// Remove DC offset and apply a Hann window
 static void window_samples(void) {
     float sum = 0.0f;
     for (int i = 0; i < NSAMP; i++) sum += (float)sample_buf[i];
@@ -134,17 +132,16 @@ static float peak_magnitude(int start, int end) {
     return peak;
 }
 
-// Convert a column height (0-8) to a bottom-aligned LED bitmask.
+// Convert a column height to LED bitmask.
 // Height 0 → 0x00, height 8 → 0xFF.
+// Caps magnitude
 static uint8_t height_to_bitmask(int height) {
     if (height <= 0) return 0x00;
     if (height >= 8) return 0xFF;
     return (uint8_t)((1 << height) - 1);
 }
 
-// Build an 8-byte row pattern from 8 column bitmasks so the MAX7219
-// row-oriented driver draws the correct bar-graph image.
-// column_bits[c] has bit k set when column c should be lit at row k.
+// Reverse Engineered Display Driver
 static void columns_to_rows(uint8_t column_bits[NUM_COLS],
                              uint8_t row_pattern[8]) {
     for (int row = 0; row < 8; row++) {
@@ -179,10 +176,6 @@ void process_frame(void) {
     columns_to_rows(column_bits, row_pattern);
     display_pattern(row_pattern);
 }
-
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
 
 int main(void) {
     setup_hardware();
